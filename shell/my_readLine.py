@@ -1,9 +1,6 @@
 #! /usr/bin/env python3
-#
-# readlines.py.  Demo of buffered stdin semantics
-#
 
-import os, read, write
+import os, sys, time, re
 
 ibuf = ""      # Input buffer
 sbuf = ""      # String buffer
@@ -39,12 +36,3 @@ def my_readLine():
             return line
     line+= '\n'             # If a new line was found, then return the line with a new line char
     return line
-
-numLines = 0
-inLine = my_readLine()
-while len(inLine):          # While we keep gettings lines, print them
-    numLines += 1
-    write(1, f"### Line {numLines}: <{inLine}> ###\n".encode())
-    inLine = my_readLine()
-    
-write(1, f"EOF after {numLines} lines\n".encode()) # EOF

@@ -3,12 +3,12 @@
 import os, sys, time, re
 from my_readLine import my_readLine
 
-if not os.environ["PS1"]:        # If prompt is not set, then set it to '$'
+if not os.environ["PS1"]:             # If prompt is not set, then set it to '$'
     os.environ["PS1"] = '$'
     
 
 while(True):                          # Loop forever
-    os.write(1,("%s" %os.environ["PS1"]).encode()) # Print shell prompt
+    os.write(1,("%s" % os.environ["PS1"]).encode()) # Print shell prompt
     args = my_readLine().split()      # Tokenize input
 
     if args == []:                    # If no input, continue
@@ -16,7 +16,16 @@ while(True):                          # Loop forever
     
     elif args[0] == "exit":           # If input is exit, then exit
         sys.exit(0)
-    
+
+    elif args[0] == "cd":             # If input is cd, then change directory
+        if len(args) == 1 or len(args) > 2:
+            os.write(2, "Invalid argument for command cd\n".encode())
+        else:
+            try:
+                os.chdir(args[1])
+            except:
+                os.write(2, ("%s is not an available directory\n" % args[1]).encode())
+        continue
     # pid = os.getpid()               # Uncomment this and all os.write() to see forking
     # os.write(1, ("About to fork (pid:%d)\n" % pid).encode())
 
@@ -49,7 +58,7 @@ while(True):                          # Loop forever
                 pass                                  # ...fail quietly
 
         # os.write(2, ("Child:    Could not exec %s\n" % args[0]).encode())
-        os.write(1, ("\"%s\" is not an available command in your system.\n" % args[0]).encode())
+        os.write(1, ("\"%s\" is not an available command in your system\n" % args[0]).encode())
         sys.exit(2)                                   # terminate with error 2
 
     else:                                             # Parent (forked ok)

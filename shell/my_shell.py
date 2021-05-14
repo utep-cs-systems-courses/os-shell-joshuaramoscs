@@ -5,7 +5,7 @@ from my_readLine import my_readLine
 
 # Set prompt to '$' if not set
 def set_prompt():
-    if not os.environ["PS1"]:
+    # if not os.environ["PS1"]:
         os.environ["PS1"] = '$'
 
 # Change directory
@@ -25,31 +25,33 @@ def process_data(*args):
         os.write(2, ("fork failed, returning %d\n" % rc).encode())
         sys.exit(1)
     elif rc == 0:                     # Child
-        if type(args) == tuple:       # If came from a pipe, set fd to buffer
+        if len(args) == 3:       # If came from a pipe, set fd to buffer
             os.close(1)
             os.dup(args[2])           # duplicate pw
+            os.set_inheritable(1, True)
             os.close(args[1])         # close pr
             os.close(args[2])         # close pw
-        if '>' in args:               # If '>', redirect output
-            redirect_out(args)
-        if '<' in args:               # If '<', redirect input
-            redirect_in(args)
-        if '|' in args:               # If '|', pipe command
-            my_pipe()
+        if '>' in args[0]:               # If '>', redirect output
+            redirect_out(args[0])
+        if '<' in args[0]:               # If '<', redirect input
+            redirect_in(args[0])
+        if '|' in args[0]:               # If '|', pipe command
+            my_pipe(args[0])
         else:
-            execute_cmd(args)         # execute command (args)
+            execute_cmd(args[0])         # execute command (args)
     else:                             # Parent (forked ok)
-        if type(args) == tuple:       # If came from a pipe, reset fd
+        if len(args) == 3:       # If came from a pipe, reset fd
             os.close(0)
             os.dup(args[1])           # duplicate pr
+            os.set_inheritable(0, True)
             os.close(args[1])         # close pr
             os.close(args[2])         # close pw
 
 # Redirects fd 1 to file
 def redirect_out(args):
-    if '|' in args and args.index('>') < args.index('|'): # check for a > f | b
+    if ('|' in args) and (args.index('>') < args.index('|')): # check for a > f | b
         os.write(2, "Output redirect, '>', can only be for the last subcommand of a pipe".encode())
-        continue
+        sys.exit(3)
     os.close(1)                                           # Close display fd and replace it with file
     os.open(args[args.index('>')+1], os.O_CREAT | os.O_WRONLY);
     os.set_inheritable(1, True)
@@ -60,7 +62,7 @@ def redirect_out(args):
 def redirect_in(args):
     if '|' in args and args.index('>') < args.index('|'): # check for a | b < f
         os.write(2, "Input redirect, '<', can only be for the first subcommand of a pipe".encode())
-        continue
+        sys.exit(4)
     os.close(0)                                           # Close keyboard fd and replace it with file
     os.open(args[args.index('<')+1], os.O_RDONLY);
     os.set_inheritable(0, True)

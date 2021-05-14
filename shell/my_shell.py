@@ -19,33 +19,45 @@ def my_cd(args):
             os.write(2, ("\"%s\" is not an available directory\n" % args[1]).encode())
 
 # Determine input redirection and piping
-def process_data(*args):
+def process_data(args):
+    pipeFlag = False
     rc = os.fork()                    # create a new process to handle input
     if rc < 0:                        # Failed forking, terminate with error 1
         os.write(2, ("fork failed, returning %d\n" % rc).encode())
         sys.exit(1)
     elif rc == 0:                     # Child
-        if len(args) == 3:       # If came from a pipe, set fd to buffer
-            os.close(1)
-            os.dup(args[2])           # duplicate pw
+        if '>' in args:               # If '>', redirect output
+            redirect_out(args)
+        if '<' in args:               # If '<', redirect input
+            redirect_in(args)
+        if '|' in args:               # If '|', pipe command
+            left = args[0:args.index("|")]
+            right = args[args.index("|")+1:]
+            pr, pw = os.pipe()
+            
+            os.close(1)          # close display fd
+            os.dup(pw)           # duplicate pw
             os.set_inheritable(1, True)
-            os.close(args[1])         # close pr
-            os.close(args[2])         # close pw
-        if '>' in args[0]:               # If '>', redirect output
-            redirect_out(args[0])
-        if '<' in args[0]:               # If '<', redirect input
-            redirect_in(args[0])
-        if '|' in args[0]:               # If '|', pipe command
-            my_pipe(args[0])
+            os.close(pr)         # close pr
+            os.close(pw)         # close pw
+            pipeFlag = True      # Used to make sure parent closes pipe
+            execute_cmd(left)
+            os.write(2, ("Could not execute :(").encode())
+            sys.exit(1)
+            
         else:
-            execute_cmd(args[0])         # execute command (args)
+            execute_cmd(args)         # execute command (args)
     else:                             # Parent (forked ok)
-        if len(args) == 3:       # If came from a pipe, reset fd
-            os.close(0)
-            os.dup(args[1])           # duplicate pr
+        if pipeFlag:
+            os.close(0)          # close keyboard fd
+            os.dup(pr)           # duplicate pr
             os.set_inheritable(0, True)
-            os.close(args[1])         # close pr
-            os.close(args[2])         # close pw
+            os.close(pr)         # close pr
+            os.close(pw)         # close pw
+            pipeFlag = False
+            execute_cmd(right)
+            os.write(2, ("Could not execute :("). encode())
+            sys.exit(1)
 
 # Redirects fd 1 to file
 def redirect_out(args):
@@ -61,26 +73,13 @@ def redirect_out(args):
 # Redirects fd 0 to file
 def redirect_in(args):
     if '|' in args and args.index('>') < args.index('|'): # check for a | b < f
-        os.write(2, "Input redirect, '<', can only be for the first subcommand of a pipe".encode())
+        os.write(1, "Input redirect, '<', can only be for the first subcommand of a pipe".encode())
         sys.exit(4)
     os.close(0)                                           # Close keyboard fd and replace it with file
     os.open(args[args.index('<')+1], os.O_RDONLY);
     os.set_inheritable(0, True)
     args.remove(args[args.index('<') + 1])                # Remove '<' from argument
     args.remove('<')
-
-# Pipes two or more commands by a shared buffer
-def my_pipe(args):
-    pr, pw = os.pipe() # Get fds for pipe read/write buffer
-    for f in (pr, pw):
-        os.set_inheritable(f, True)
-
-    pargs = ""         # Tokenize args for pipe
-    for i in args:
-        pargs += i     # Convert into a single list
-    pargs.split('|')   # Tokenize left and right sides and sent them to process_data() with pr, pw
-    process_data(pargs[0], pr,pw)
-    process_data(pargs[1], pr,pw)
 
 # Executes given command if available
 def execute_cmd(args):                            # Execute command
@@ -91,7 +90,7 @@ def execute_cmd(args):                            # Execute command
         except FileNotFoundError:                 # ...expected
             pass                                  # ...fail quietly
 
-    os.write(1, ("\"%s\" is not an available command in your system\n" % args[0]).encode())
+    os.write(2, ("\"%s\" is not an available command in your system\n" % args[0]).encode())
     sys.exit(2)                                   # If not a cmd, terminate with error 2
 
 # MAIN
